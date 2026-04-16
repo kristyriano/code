@@ -179,7 +179,7 @@ class UserManagementDialog:
         self.dialog.resizable(False, False)
         self.dialog.grab_set()
 
-        w, h = 780, 580
+        w, h = 860, 660
         parent.update_idletasks()
         x = parent.winfo_x() + (parent.winfo_width()  // 2) - w // 2
         y = parent.winfo_y() + (parent.winfo_height() // 2) - h // 2
