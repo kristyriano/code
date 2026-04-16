@@ -4,10 +4,8 @@ import json
 import os
 import datetime
 import hashlib
-import platform
-
-# ── Platform helpers ──────────────────────────────────────────────────────────
 import platform as _platform
+
 _SYS = _platform.system()
 
 def _font(size: int, weight: str = "normal") -> tuple:
@@ -33,9 +31,6 @@ def _emoji_font(size: int) -> tuple:
         return ("Apple Color Emoji", size)
     return ("Segoe UI Emoji", size)
 
-
-# ── Auth helpers ──────────────────────────────────────────────────────────────
-
 def _hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -60,6 +55,16 @@ def save_users(users: dict):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=2)
 
+# ── IS-16: Role permissions ───────────────────────────────────────────────────
+ROLE_PERMISSIONS = {
+    "admin":    ["add", "edit", "remove", "restock", "sell", "depletion", "users", "backup"],
+    "manager":  ["add", "edit", "remove", "restock", "sell", "depletion"],
+    "employee": ["sell", "depletion"],
+}
+
+def can(role: str, action: str) -> bool:
+    return action in ROLE_PERMISSIONS.get(role, [])
+
 
 # ── Login Window ──────────────────────────────────────────────────────────────
 
@@ -73,7 +78,7 @@ class LoginWindow:
         self.root.configure(bg="#f3f6fb")
         self.root.resizable(False, False)
 
-        w, h = 420, 580
+        w, h = 420, 610
         self.root.update_idletasks()
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -85,23 +90,16 @@ class LoginWindow:
     def _build(self):
         card = tk.Frame(self.root, bg="white", bd=0,
                         highlightthickness=1, highlightbackground="#dbe3f0")
-        card.place(relx=0.5, rely=0.5, anchor="center", width=360, height=520)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=360, height=550)
 
-        # Top accent bar
         tk.Frame(card, bg="#1e3a8a", height=6).pack(fill="x")
 
-        # Logo
         logo_frame = tk.Frame(card, bg="white")
         logo_frame.pack(pady=(28, 0))
-
-        tk.Label(logo_frame, text="📦",
-                 font=_emoji_font(40),
-                 bg="white").pack()
-        tk.Label(logo_frame, text="Invntra",
-                 font=_font(22, "bold"),
+        tk.Label(logo_frame, text="📦", font=_emoji_font(40), bg="white").pack()
+        tk.Label(logo_frame, text="Invntra", font=_font(22, "bold"),
                  bg="white", fg="#1e3a8a").pack()
-        tk.Label(logo_frame, text="Inventory Registra",
-                 font=_font(10),
+        tk.Label(logo_frame, text="Inventory Registra", font=_font(10),
                  bg="white", fg="#6b7280").pack(pady=(2, 0))
 
         tk.Frame(card, bg="#e5e7eb", height=1).pack(fill="x", padx=32, pady=20)
@@ -111,28 +109,21 @@ class LoginWindow:
 
         tk.Label(form, text="Username", font=_font(10, "bold"),
                  bg="white", fg="#374151").pack(anchor="w")
-        self.user_entry = tk.Entry(form, font=_font(12),
-                                   bg="#f8fafc", fg="#111827",
-                                   relief="solid", bd=1,
-                                   highlightthickness=1,
-                                   highlightbackground="#cbd5e1",
-                                   highlightcolor="#3b82f6")
+        self.user_entry = tk.Entry(form, font=_font(12), bg="#f8fafc", fg="#111827",
+                                   relief="solid", bd=1, highlightthickness=1,
+                                   highlightbackground="#cbd5e1", highlightcolor="#3b82f6")
         self.user_entry.pack(fill="x", ipady=8, pady=(4, 14))
 
         tk.Label(form, text="Password", font=_font(10, "bold"),
                  bg="white", fg="#374151").pack(anchor="w")
-        self.pass_entry = tk.Entry(form, font=_font(12),
-                                   bg="#f8fafc", fg="#111827",
-                                   relief="solid", bd=1,
-                                   highlightthickness=1,
-                                   highlightbackground="#cbd5e1",
-                                   highlightcolor="#3b82f6",
+        self.pass_entry = tk.Entry(form, font=_font(12), bg="#f8fafc", fg="#111827",
+                                   relief="solid", bd=1, highlightthickness=1,
+                                   highlightbackground="#cbd5e1", highlightcolor="#3b82f6",
                                    show="*")
         self.pass_entry.pack(fill="x", ipady=8, pady=(4, 6))
 
         self.show_pass = tk.BooleanVar(value=False)
-        tk.Checkbutton(form, text="Show password",
-                       variable=self.show_pass,
+        tk.Checkbutton(form, text="Show password", variable=self.show_pass,
                        font=_font(9), bg="white", fg="#6b7280",
                        activebackground="white", cursor="hand2",
                        command=self._toggle_password).pack(anchor="w", pady=(0, 14))
@@ -141,11 +132,9 @@ class LoginWindow:
                                     bg="white", fg="#be123c")
         self.error_label.pack(anchor="w", pady=(0, 6))
 
-        tk.Button(form, text="Log In",
-                  font=_font(12, "bold"),
-                  bg="#2563eb", fg="white",
-                  activebackground="#1d4ed8", activeforeground="white",
-                  relief="flat", bd=0, cursor="hand2",
+        tk.Button(form, text="Log In", font=_font(12, "bold"),
+                  bg="#2563eb", fg="white", activebackground="#1d4ed8",
+                  activeforeground="white", relief="flat", bd=0, cursor="hand2",
                   pady=12, command=self._attempt_login).pack(fill="x")
 
         self.root.bind("<Return>", lambda e: self._attempt_login())
@@ -193,27 +182,16 @@ class UserManagementDialog:
 
     def _build(self):
         hdr = tk.Frame(self.dialog, bg="#1e3a8a", height=52)
-        hdr.pack(fill="x")
-        hdr.pack_propagate(False)
+        hdr.pack(fill="x"); hdr.pack_propagate(False)
         tk.Label(hdr, text="User Management", font=_font(14, "bold"),
                  bg="#1e3a8a", fg="white").pack(side="left", padx=20, pady=12)
 
         body = tk.Frame(self.dialog, bg="white")
         body.pack(fill="both", expand=True, padx=20, pady=16)
 
-        # Left: create user
-        left_outer = tk.Frame(body, bg="white", bd=0,
-                              highlightthickness=1, highlightbackground="#dbe3f0")
-        left_outer.pack(side="left", fill="y", padx=(0, 14))
-        left_canvas = tk.Canvas(left_outer, bg="white", highlightthickness=0, width=260)
-        left_canvas.pack(side="left", fill="both", expand=True)
-        left_sb = ttk.Scrollbar(left_outer, orient="vertical", command=left_canvas.yview)
-        left_sb.pack(side="right", fill="y")
-        left_canvas.configure(yscrollcommand=left_sb.set)
-        left = tk.Frame(left_canvas, bg="white")
-        left_canvas.create_window((0, 0), window=left, anchor="nw")
-        left.bind("<Configure>", lambda e: left_canvas.configure(
-            scrollregion=left_canvas.bbox("all")))
+        left = tk.Frame(body, bg="white", bd=0,
+                        highlightthickness=1, highlightbackground="#dbe3f0")
+        left.pack(side="left", fill="y", padx=(0, 14), ipadx=10)
 
         tk.Label(left, text="Create New Account", font=_font(12, "bold"),
                  bg="white", fg="#1f2937").pack(anchor="w", padx=16, pady=(10, 2))
@@ -221,31 +199,45 @@ class UserManagementDialog:
                  font=_font(9), bg="white", fg="#6b7280").pack(anchor="w", padx=16, pady=(0, 8))
 
         def _lbl(p, t):
-            tk.Label(p, text=t, font=_font(9, "bold"), bg="white", fg="#374151").pack(anchor="w", padx=16)
+            tk.Label(p, text=t, font=_font(9, "bold"), bg="white",
+                     fg="#374151").pack(anchor="w", padx=16)
 
         def _ent(p, **kw):
             e = tk.Entry(p, font=_font(11), bg="#f8fafc", fg="#111827",
                          relief="solid", bd=1, highlightthickness=1,
-                         highlightbackground="#cbd5e1", highlightcolor="#3b82f6", width=22, **kw)
+                         highlightbackground="#cbd5e1", highlightcolor="#3b82f6",
+                         width=22, **kw)
             e.pack(fill="x", padx=16, ipady=6, pady=(4, 6))
             return e
 
-        _lbl(left, "Username");   self.new_user_entry    = _ent(left)
-        _lbl(left, "Password");   self.new_pass_entry    = _ent(left, show="*")
+        _lbl(left, "Username");        self.new_user_entry    = _ent(left)
+        _lbl(left, "Password");        self.new_pass_entry    = _ent(left, show="*")
         _lbl(left, "Confirm Password"); self.confirm_pass_entry = _ent(left, show="*")
 
         _lbl(left, "Role")
         self.role_var = tk.StringVar(value="employee")
         rf = tk.Frame(left, bg="white")
-        rf.pack(anchor="w", padx=16, pady=(4, 14))
+        rf.pack(anchor="w", padx=16, pady=(4, 10))
         for r in ("admin", "manager", "employee"):
             row = tk.Frame(rf, bg="white")
             row.pack(anchor="w", pady=2)
             tk.Radiobutton(row, text=r.capitalize(), variable=self.role_var, value=r,
                            font=_font(10), bg="white", fg="#374151",
                            activebackground="white", activeforeground="#111827",
-                           selectcolor="white",
-                           cursor="hand2").pack(side="left")
+                           selectcolor="white", cursor="hand2").pack(side="left")
+
+        # IS-16: Show permissions per role
+        perm_frame = tk.Frame(left, bg="#f8fafc", bd=0,
+                              highlightthickness=1, highlightbackground="#dbe3f0")
+        perm_frame.pack(fill="x", padx=16, pady=(0, 10))
+        tk.Label(perm_frame, text="Access level preview",
+                 font=_font(8, "bold"), bg="#f8fafc", fg="#6b7280").pack(anchor="w", padx=8, pady=(6,2))
+        self.perm_label = tk.Label(perm_frame, text=self._get_perm_text("employee"),
+                                   font=_font(8), bg="#f8fafc", fg="#374151",
+                                   justify="left", wraplength=180)
+        self.perm_label.pack(anchor="w", padx=8, pady=(0, 6))
+        self.role_var.trace_add("write", lambda *_: self.perm_label.config(
+            text=self._get_perm_text(self.role_var.get())))
 
         self.create_status = tk.Label(left, text="", font=_font(9),
                                       bg="white", fg="#15803d", wraplength=200)
@@ -254,9 +246,8 @@ class UserManagementDialog:
         tk.Button(left, text="Create Account", font=_font(10, "bold"),
                   bg="#2563eb", fg="white", activebackground="#1d4ed8",
                   relief="flat", bd=0, cursor="hand2", padx=14, pady=10,
-                  command=self._create_user).pack(fill="x", padx=16, pady=(20, 16))
+                  command=self._create_user).pack(fill="x", padx=16, pady=(10, 16))
 
-        # Right: user list
         right = tk.Frame(body, bg="white", bd=0,
                          highlightthickness=1, highlightbackground="#dbe3f0")
         right.pack(side="right", fill="both", expand=True)
@@ -283,6 +274,16 @@ class UserManagementDialog:
                   command=self._delete_user).pack(anchor="e", padx=12, pady=(0, 12))
 
         self._refresh_users_tree()
+
+    def _get_perm_text(self, role: str) -> str:
+        perms = ROLE_PERMISSIONS.get(role, [])
+        labels = {
+            "add": "Add products", "edit": "Edit products",
+            "remove": "Remove products", "restock": "Restock",
+            "sell": "Record sales", "depletion": "Report depletion",
+            "users": "Manage users", "backup": "Backup data"
+        }
+        return "\n".join(f"• {labels[p]}" for p in perms)
 
     def _refresh_users_tree(self):
         for row in self.users_tree.get_children():
@@ -341,7 +342,6 @@ def perform_backup(products, depletion_log) -> str:
 
 class BackupDialog:
     def __init__(self, parent, products, depletion_log):
-        self.parent = parent
         self.products = products
         self.depletion_log = depletion_log
 
@@ -417,6 +417,119 @@ class BackupDialog:
             self.backup_status.config(text=f"Backup failed: {e}", fg="#be123c")
 
 
+# ── IS-10: Inventory Report Dialog ───────────────────────────────────────────
+
+class ReportDialog:
+    def __init__(self, parent, products, depletion_log):
+        self.products = products
+        self.depletion_log = depletion_log
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Inventory Report")
+        self.dialog.configure(bg="white")
+        self.dialog.resizable(False, False)
+        self.dialog.grab_set()
+
+        w, h = 580, 520
+        parent.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width()  // 2) - w // 2
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - h // 2
+        self.dialog.geometry(f"{w}x{h}+{x}+{y}")
+        self._build()
+
+    def _build(self):
+        hdr = tk.Frame(self.dialog, bg="#1e3a8a", height=52)
+        hdr.pack(fill="x"); hdr.pack_propagate(False)
+        tk.Label(hdr, text="Inventory Report", font=_font(14, "bold"),
+                 bg="#1e3a8a", fg="white").pack(side="left", padx=20, pady=12)
+        tk.Label(hdr, text=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                 font=_font(10), bg="#1e3a8a", fg="#93c5fd").pack(side="right", padx=20)
+
+        body = tk.Frame(self.dialog, bg="white")
+        body.pack(fill="both", expand=True, padx=20, pady=16)
+
+        # Summary stats
+        total = len(self.products)
+        total_value = sum(p["price"] * p["quantity"] for p in self.products)
+        out_of_stock = sum(1 for p in self.products if p["quantity"] == 0)
+        low_stock    = sum(1 for p in self.products if 0 < p["quantity"] <= 20)
+        total_dep    = sum(e["qty"] for e in self.depletion_log)
+
+        stats_frame = tk.Frame(body, bg="white")
+        stats_frame.pack(fill="x", pady=(0, 16))
+
+        for label, value, color in [
+            ("Total Products",    str(total),           "#1e3a8a"),
+            ("Total Value",       f"${total_value:.2f}", "#15803d"),
+            ("Out of Stock",      str(out_of_stock),    "#be123c"),
+            ("Low Stock",         str(low_stock),       "#b45309"),
+            ("Total Depletions",  str(total_dep),       "#854d0e"),
+        ]:
+            card = tk.Frame(stats_frame, bg="#f8fafc", bd=0,
+                            highlightthickness=1, highlightbackground="#dbe3f0")
+            card.pack(side="left", expand=True, fill="x", padx=4)
+            tk.Label(card, text=value, font=_font(18, "bold"),
+                     bg="#f8fafc", fg=color).pack(pady=(10, 2))
+            tk.Label(card, text=label, font=_font(8),
+                     bg="#f8fafc", fg="#6b7280").pack(pady=(0, 10))
+
+        # Category breakdown
+        tk.Label(body, text="Stock by Category", font=_font(11, "bold"),
+                 bg="white", fg="#1f2937").pack(anchor="w", pady=(0, 6))
+
+        cat_frame = tk.Frame(body, bg="white")
+        cat_frame.pack(fill="x", pady=(0, 12))
+
+        categories = {}
+        for p in self.products:
+            cat = p["category"]
+            if cat not in categories:
+                categories[cat] = {"count": 0, "qty": 0, "value": 0}
+            categories[cat]["count"] += 1
+            categories[cat]["qty"]   += p["quantity"]
+            categories[cat]["value"] += p["price"] * p["quantity"]
+
+        tf = tk.Frame(cat_frame, bg="white")
+        tf.pack(fill="x")
+        sb = ttk.Scrollbar(tf); sb.pack(side="right", fill="y")
+        cat_tree = ttk.Treeview(tf, columns=("category","products","qty","value"),
+                                 show="headings", height=5, yscrollcommand=sb.set)
+        cat_tree.pack(fill="x")
+        sb.config(command=cat_tree.yview)
+        for col, txt, w in [("category","Category",160),("products","Products",80),
+                             ("qty","Total Qty",80),("value","Total Value",100)]:
+            cat_tree.heading(col, text=txt)
+            cat_tree.column(col, width=w, anchor="center")
+        for cat, data in categories.items():
+            cat_tree.insert("", "end", values=(cat, data["count"],
+                                               data["qty"], f"${data['value']:.2f}"))
+
+        if not categories:
+            tk.Label(body, text="No products in inventory yet.",
+                     font=_font(10), bg="white", fg="#9ca3af").pack()
+
+        # Top 5 low stock
+        tk.Label(body, text="Low Stock Alert", font=_font(11, "bold"),
+                 bg="white", fg="#1f2937").pack(anchor="w", pady=(8, 6))
+
+        low_products = sorted([p for p in self.products if p["quantity"] <= 20],
+                              key=lambda x: x["quantity"])[:5]
+
+        if low_products:
+            for p in low_products:
+                color = "#be123c" if p["quantity"] == 0 else "#b45309"
+                row = tk.Frame(body, bg="#fff7ed", bd=0,
+                               highlightthickness=1, highlightbackground="#fde68a")
+                row.pack(fill="x", pady=2)
+                tk.Label(row, text=p["name"], font=_font(10, "bold"),
+                         bg="#fff7ed", fg="#92400e").pack(side="left", padx=10, pady=6)
+                tk.Label(row, text=f"{p['quantity']} units",
+                         font=_font(10, "bold"), bg="#fff7ed", fg=color).pack(side="right", padx=10)
+        else:
+            tk.Label(body, text="All products are well stocked.",
+                     font=_font(10), bg="white", fg="#15803d").pack(anchor="w")
+
+
 # ── Main Inventory App ────────────────────────────────────────────────────────
 
 class InventoryApp:
@@ -462,21 +575,31 @@ class InventoryApp:
         right_hdr = tk.Frame(header, bg="#1e3a8a")
         right_hdr.pack(side="right", padx=20)
 
-        if self.current_role == "admin":
+        # IS-16: Only show admin buttons if role is admin
+        if can(self.current_role, "backup"):
             tk.Button(right_hdr, text="Backup", font=_font(10, "bold"),
                       bg="#1d4ed8", fg="white", activebackground="#1e3a8a",
                       relief="flat", bd=0, cursor="hand2", padx=14, pady=7,
                       command=self._open_backup).pack(side="left", padx=(0, 8))
+
+        if can(self.current_role, "users"):
             tk.Button(right_hdr, text="Users", font=_font(10, "bold"),
                       bg="#1d4ed8", fg="white", activebackground="#1e3a8a",
                       relief="flat", bd=0, cursor="hand2", padx=14, pady=7,
-                      command=self._open_user_mgmt).pack(side="left", padx=(0, 16))
+                      command=self._open_user_mgmt).pack(side="left", padx=(0, 8))
+
+        # IS-10: Report button for manager and admin
+        if self.current_role in ("admin", "manager"):
+            tk.Button(right_hdr, text="Report", font=_font(10, "bold"),
+                      bg="#1d4ed8", fg="white", activebackground="#1e3a8a",
+                      relief="flat", bd=0, cursor="hand2", padx=14, pady=7,
+                      command=self._open_report).pack(side="left", padx=(0, 16))
 
         user_pill = tk.Frame(right_hdr, bg="#2563eb", bd=0,
                              highlightthickness=1, highlightbackground="#3b82f6")
         user_pill.pack(side="left", padx=(0, 8))
-        badge = "ADMIN" if self.current_role == "admin" else "EMPLOYEE"
-        color = "#fbbf24" if self.current_role == "admin" else "#93c5fd"
+        badge = self.current_role.upper()
+        color = "#fbbf24" if self.current_role == "admin" else "#86efac" if self.current_role == "manager" else "#93c5fd"
         tk.Label(user_pill, text=f"  {self.current_user}  [{badge}]  ",
                  font=_font(10, "bold"), bg="#2563eb", fg=color).pack(pady=6, padx=4)
 
@@ -489,42 +612,51 @@ class InventoryApp:
         main_container = tk.Frame(self.root, bg="#f3f6fb")
         main_container.pack(fill="both", expand=True, padx=24, pady=24)
 
-        # ── Left card – form ───────────────────────────────────────────────
-        self.form_card = tk.Frame(main_container, bg="white", bd=0,
-                                  highlightthickness=1, highlightbackground="#dbe3f0")
-        self.form_card.pack(side="left", fill="y", padx=(0, 18))
+        # ── Left card – form (IS-16: hide for employee) ────────────────────
+        if can(self.current_role, "add"):
+            self.form_card = tk.Frame(main_container, bg="white", bd=0,
+                                      highlightthickness=1, highlightbackground="#dbe3f0")
+            self.form_card.pack(side="left", fill="y", padx=(0, 18))
 
-        self.form_title_label = tk.Label(self.form_card, text="Product Information",
-                                          font=_font(16, "bold"), bg="white", fg="#1f2937")
-        self.form_title_label.pack(anchor="w", padx=24, pady=(24, 8))
+            self.form_title_label = tk.Label(self.form_card, text="Product Information",
+                                              font=_font(16, "bold"), bg="white", fg="#1f2937")
+            self.form_title_label.pack(anchor="w", padx=24, pady=(24, 8))
 
-        self.form_description_label = tk.Label(self.form_card,
-                                               text="Fill in the fields below to add a new product.",
-                                               font=_font(12), bg="white", fg="#6b7280")
-        self.form_description_label.pack(anchor="w", padx=24, pady=(0, 18))
+            self.form_description_label = tk.Label(self.form_card,
+                                                   text="Fill in the fields below to add a new product.",
+                                                   font=_font(12), bg="white", fg="#6b7280")
+            self.form_description_label.pack(anchor="w", padx=24, pady=(0, 18))
 
-        self.name_entry     = self.create_labeled_input(self.form_card, "Product Name")
-        self.category_entry = self.create_labeled_input(self.form_card, "Category")
-        self.price_entry    = self.create_labeled_input(self.form_card, "Price")
-        self.quantity_entry = self.create_labeled_input(self.form_card, "Quantity")
+            self.name_entry     = self.create_labeled_input(self.form_card, "Product Name")
+            self.category_entry = self.create_labeled_input(self.form_card, "Category")
+            self.price_entry    = self.create_labeled_input(self.form_card, "Price")
+            self.quantity_entry = self.create_labeled_input(self.form_card, "Quantity")
 
-        self.primary_button = tk.Button(self.form_card, text="Add Product",
-                                         font=_font(12, "bold"), bg="#2563eb", fg="white",
-                                         activebackground="#1d4ed8", activeforeground="white",
-                                         relief="flat", bd=0, cursor="hand2", padx=14, pady=12,
-                                         command=self.handle_primary_action)
-        self.primary_button.pack(fill="x", padx=24, pady=(14, 10))
+            self.primary_button = tk.Button(self.form_card, text="Add Product",
+                                             font=_font(12, "bold"), bg="#2563eb", fg="white",
+                                             activebackground="#1d4ed8", activeforeground="white",
+                                             relief="flat", bd=0, cursor="hand2", padx=14, pady=12,
+                                             command=self.handle_primary_action)
+            self.primary_button.pack(fill="x", padx=24, pady=(14, 10))
 
-        self.secondary_button = tk.Button(self.form_card, text="Clear Fields",
-                                           font=_font(12), bg="#eef2f7", fg="#1f2937",
-                                           activebackground="#e5e7eb", activeforeground="#111827",
-                                           relief="flat", bd=0, cursor="hand2", padx=14, pady=12,
-                                           command=self.handle_secondary_action)
-        self.secondary_button.pack(fill="x", padx=24, pady=(0, 24))
+            self.secondary_button = tk.Button(self.form_card, text="Clear Fields",
+                                               font=_font(12), bg="#eef2f7", fg="#1f2937",
+                                               activebackground="#e5e7eb", activeforeground="#111827",
+                                               relief="flat", bd=0, cursor="hand2", padx=14, pady=12,
+                                               command=self.handle_secondary_action)
+            self.secondary_button.pack(fill="x", padx=24, pady=(0, 24))
 
         # ── Right section ──────────────────────────────────────────────────
         right_section = tk.Frame(main_container, bg="#f3f6fb")
         right_section.pack(side="right", fill="both", expand=True)
+
+        # Role info banner for employee
+        if self.current_role == "employee":
+            banner = tk.Frame(right_section, bg="#eff6ff", bd=0,
+                              highlightthickness=1, highlightbackground="#bfdbfe")
+            banner.pack(fill="x", pady=(0, 12))
+            tk.Label(banner, text="Employee view — you can record sales and report depletions.",
+                     font=_font(10), bg="#eff6ff", fg="#1d4ed8").pack(anchor="w", padx=16, pady=10)
 
         # Summary card
         summary_card = tk.Frame(right_section, bg="white", bd=0,
@@ -558,7 +690,7 @@ class InventoryApp:
         self.depletion_count_label.pack(side="left", padx=(0, 8), pady=20)
         self.depletion_count_label.bind("<Button-1>", lambda e: self.toggle_depletion_log())
 
-        self.depletion_text_btn = tk.Label(summary_card, text="Depletion  ▾",
+        self.depletion_text_btn = tk.Label(summary_card, text="Depletion  v",
                                            font=_font(12), bg="white", fg="#854d0e", cursor="hand2")
         self.depletion_text_btn.pack(side="left", pady=28)
         self.depletion_text_btn.bind("<Button-1>", lambda e: self.toggle_depletion_log())
@@ -579,7 +711,6 @@ class InventoryApp:
         tk.Button(dph, text="Close", font=_font(9), bg="#fefce8", fg="#854d0e",
                   activebackground="#fef9c3", relief="flat", bd=0, cursor="hand2",
                   padx=8, pady=4, command=self.toggle_depletion_log).pack(side="right", padx=12, pady=8)
-
         dlc = tk.Frame(self.depletion_panel, bg="white")
         dlc.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         dsb = ttk.Scrollbar(dlc); dsb.pack(side="right", fill="y")
@@ -593,30 +724,31 @@ class InventoryApp:
             self.depletion_tree.heading(col, text=txt)
             self.depletion_tree.column(col, width=w, anchor="center", stretch=st)
 
-        # Table header
+        # Table header with IS-16 role-based buttons
         table_header = tk.Frame(table_card, bg="white")
         table_header.pack(fill="x", padx=20, pady=(20, 8))
         tk.Label(table_header, text="Inventory Products",
                  font=_font(16, "bold"), bg="white", fg="#1f2937").pack(side="left")
 
-        for txt, bg, fg, abg, hbg, cmd in [
-            ("✏  Edit",      "#f0f6ff","#1e3a8a","#dbeafe","#bfdbfe", self.load_selected_for_edit),
-            ("📦  Restock",  "#eff6ff","#1d4ed8","#dbeafe","#93c5fd", self.restock_stock_dialog),
-            ("🛒  Sell",     "#f0fdf4","#15803d","#dcfce7","#86efac", self.sell_stock_dialog),
-            ("⚠  Depletion","#fefce8","#854d0e","#fef9c3","#fde68a", self.report_depletion_dialog),
-            ("🗑  Remove",   "#fff1f2","#be123c","#ffe4e6","#fecdd3", self.remove_selected_product),
-        ]:
-            tk.Button(table_header, text=txt, font=_font(12, "bold"),
-                      bg=bg, fg=fg, activebackground=abg, activeforeground=fg,
-                      relief="flat", bd=0, cursor="hand2", padx=8, pady=4,
-                      highlightthickness=1, highlightbackground=hbg,
-                      command=cmd).pack(side="right", padx=(0, 8))
+        all_buttons = [
+            ("edit",      "Edit",      "#f0f6ff","#1e3a8a","#dbeafe","#bfdbfe", self.load_selected_for_edit),
+            ("restock",   "Restock",   "#eff6ff","#1d4ed8","#dbeafe","#93c5fd", self.restock_stock_dialog),
+            ("sell",      "Sell",      "#f0fdf4","#15803d","#dcfce7","#86efac", self.sell_stock_dialog),
+            ("depletion", "Depletion", "#fefce8","#854d0e","#fef9c3","#fde68a", self.report_depletion_dialog),
+            ("remove",    "Remove",    "#fff1f2","#be123c","#ffe4e6","#fecdd3", self.remove_selected_product),
+        ]
+
+        for action, txt, bg, fg, abg, hbg, cmd in all_buttons:
+            if can(self.current_role, action):
+                tk.Button(table_header, text=txt, font=_font(12, "bold"),
+                          bg=bg, fg=fg, activebackground=abg, activeforeground=fg,
+                          relief="flat", bd=0, cursor="hand2", padx=8, pady=4,
+                          highlightthickness=1, highlightbackground=hbg,
+                          command=cmd).pack(side="right", padx=(0, 8))
 
         # Search bar
         sb_frame = tk.Frame(table_card, bg="white")
         sb_frame.pack(fill="x", padx=20, pady=(0, 10))
-        tk.Label(sb_frame, text="🔍", font=_emoji_font(13),
-                 bg="white", fg="#6b7280").pack(side="left", padx=(0, 4))
         tk.Label(sb_frame, text="Search", font=_font(12, "bold"),
                  bg="white", fg="#374151").pack(side="left", padx=(0, 8))
         self.search_entry = tk.Entry(sb_frame, textvariable=self.search_var,
@@ -624,7 +756,7 @@ class InventoryApp:
                                      relief="solid", bd=1, highlightthickness=1,
                                      highlightbackground="#cbd5e1", highlightcolor="#3b82f6")
         self.search_entry.pack(side="left", fill="x", expand=True, ipady=6)
-        tk.Button(sb_frame, text="✕", font=_font(9, "bold"),
+        tk.Button(sb_frame, text="X", font=_font(9, "bold"),
                   bg="#f1f5f9", fg="#6b7280", activebackground="#e2e8f0",
                   relief="flat", bd=0, cursor="hand2", padx=8, pady=4,
                   command=self._clear_search).pack(side="left", padx=(6, 0))
@@ -647,14 +779,15 @@ class InventoryApp:
         self.tree.tag_configure("low_stock",    background="#fff7ed", foreground="#92400e")
         self.tree.tag_configure("out_of_stock", background="#fff1f2", foreground="#9f1239")
 
-    # ── Admin ─────────────────────────────────────────────────────────────────
+    # ── Admin/Manager actions ─────────────────────────────────────────────────
     def _open_user_mgmt(self): UserManagementDialog(self.root, self.current_user)
     def _open_backup(self):    BackupDialog(self.root, self.products, self.depletion_log)
+    def _open_report(self):    ReportDialog(self.root, self.products, self.depletion_log)
+
     def _logout(self):
         if messagebox.askyesno("Log Out", "Are you sure you want to log out?"):
             self.root.destroy(); _launch_login()
 
-    # ── Input helper ──────────────────────────────────────────────────────────
     def create_labeled_input(self, parent, label_text):
         tk.Label(parent, text=label_text, font=_font(12, "bold"),
                  bg="white", fg="#374151").pack(anchor="w", padx=24, pady=(0, 6))
@@ -664,14 +797,12 @@ class InventoryApp:
         entry.pack(fill="x", padx=24, pady=(0, 14), ipady=8)
         return entry
 
-    # ── CRUD ──────────────────────────────────────────────────────────────────
     def add_product(self):
         name, category, price, quantity = self._read_fields()
         if name is None: return
         dup = next((i for i, p in enumerate(self.products) if p["name"].lower() == name.lower()), None)
         if dup is not None:
-            if messagebox.askyesno("Product Already Exists",
-                                   f'"{name}" already exists.\n\nEdit instead?'):
+            if messagebox.askyesno("Product Already Exists", f'"{name}" already exists.\n\nEdit instead?'):
                 self.edit_index = dup
                 p = self.products[dup]
                 for e, v in [(self.name_entry, p["name"]), (self.category_entry, p["category"]),
@@ -858,10 +989,10 @@ class InventoryApp:
         self.depletion_panel_visible = not self.depletion_panel_visible
         if self.depletion_panel_visible:
             self.depletion_panel.pack(fill="x", pady=(8, 0))
-            self.depletion_text_btn.config(text="Depletion  ▴")
+            self.depletion_text_btn.config(text="Depletion  ^")
         else:
             self.depletion_panel.pack_forget()
-            self.depletion_text_btn.config(text="Depletion  ▾")
+            self.depletion_text_btn.config(text="Depletion  v")
 
     def _refresh_depletion_tree(self):
         for row in self.depletion_tree.get_children():
