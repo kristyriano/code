@@ -73,7 +73,7 @@ class LoginWindow:
         self.root.configure(bg="#f3f6fb")
         self.root.resizable(False, False)
 
-        w, h = 420, 540
+        w, h = 420, 580
         self.root.update_idletasks()
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -85,7 +85,7 @@ class LoginWindow:
     def _build(self):
         card = tk.Frame(self.root, bg="white", bd=0,
                         highlightthickness=1, highlightbackground="#dbe3f0")
-        card.place(relx=0.5, rely=0.5, anchor="center", width=360, height=480)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=360, height=520)
 
         # Top accent bar
         tk.Frame(card, bg="#1e3a8a", height=6).pack(fill="x")
