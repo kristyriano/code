@@ -7,24 +7,29 @@ import hashlib
 import platform
 
 # ── Platform helpers ──────────────────────────────────────────────────────────
-IS_MAC = platform.system() == "Darwin"
+import platform as _platform
+_SYS = _platform.system()
 
 def _font(size: int, weight: str = "normal") -> tuple:
-    family = "Helvetica Neue" if IS_MAC else "Segoe UI"
+    if _SYS == "Darwin":
+        family = "Helvetica Neue"
+    elif _SYS == "Windows":
+        family = "Segoe UI"
+    else:
+        family = "DejaVu Sans"
     return (family, size, weight) if weight == "bold" else (family, size)
 
 def _maximize(root: tk.Tk):
-    if IS_MAC:
+    try:
+        root.state("zoomed")
+    except Exception:
         root.update_idletasks()
         w = root.winfo_screenwidth()
         h = root.winfo_screenheight()
         root.geometry(f"{w}x{h}+0+0")
-    else:
-        root.state("zoomed")
 
 def _emoji_font(size: int) -> tuple:
-    """Font that renders emojis correctly on Mac and Windows."""
-    if IS_MAC:
+    if _SYS == "Darwin":
         return ("Apple Color Emoji", size)
     return ("Segoe UI Emoji", size)
 
@@ -179,7 +184,7 @@ class UserManagementDialog:
         self.dialog.resizable(False, False)
         self.dialog.grab_set()
 
-        w, h = 860, 660
+        w, h = 860, 780
         parent.update_idletasks()
         x = parent.winfo_x() + (parent.winfo_width()  // 2) - w // 2
         y = parent.winfo_y() + (parent.winfo_height() // 2) - h // 2
@@ -197,14 +202,23 @@ class UserManagementDialog:
         body.pack(fill="both", expand=True, padx=20, pady=16)
 
         # Left: create user
-        left = tk.Frame(body, bg="white", bd=0,
-                        highlightthickness=1, highlightbackground="#dbe3f0")
-        left.pack(side="left", fill="y", padx=(0, 14), ipadx=10)
+        left_outer = tk.Frame(body, bg="white", bd=0,
+                              highlightthickness=1, highlightbackground="#dbe3f0")
+        left_outer.pack(side="left", fill="y", padx=(0, 14))
+        left_canvas = tk.Canvas(left_outer, bg="white", highlightthickness=0, width=260)
+        left_canvas.pack(side="left", fill="both", expand=True)
+        left_sb = ttk.Scrollbar(left_outer, orient="vertical", command=left_canvas.yview)
+        left_sb.pack(side="right", fill="y")
+        left_canvas.configure(yscrollcommand=left_sb.set)
+        left = tk.Frame(left_canvas, bg="white")
+        left_canvas.create_window((0, 0), window=left, anchor="nw")
+        left.bind("<Configure>", lambda e: left_canvas.configure(
+            scrollregion=left_canvas.bbox("all")))
 
         tk.Label(left, text="Create New Account", font=_font(12, "bold"),
-                 bg="white", fg="#1f2937").pack(anchor="w", padx=16, pady=(14, 4))
+                 bg="white", fg="#1f2937").pack(anchor="w", padx=16, pady=(10, 2))
         tk.Label(left, text="Fill in the fields to add a user.",
-                 font=_font(9), bg="white", fg="#6b7280").pack(anchor="w", padx=16, pady=(0, 12))
+                 font=_font(9), bg="white", fg="#6b7280").pack(anchor="w", padx=16, pady=(0, 8))
 
         def _lbl(p, t):
             tk.Label(p, text=t, font=_font(9, "bold"), bg="white", fg="#374151").pack(anchor="w", padx=16)
@@ -213,7 +227,7 @@ class UserManagementDialog:
             e = tk.Entry(p, font=_font(11), bg="#f8fafc", fg="#111827",
                          relief="solid", bd=1, highlightthickness=1,
                          highlightbackground="#cbd5e1", highlightcolor="#3b82f6", width=22, **kw)
-            e.pack(fill="x", padx=16, ipady=7, pady=(4, 10))
+            e.pack(fill="x", padx=16, ipady=6, pady=(4, 6))
             return e
 
         _lbl(left, "Username");   self.new_user_entry    = _ent(left)
